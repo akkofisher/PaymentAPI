@@ -1,6 +1,0 @@
-@PaymentProviderAPI_HostAddress = http://localhost:5207
-
-GET {{PaymentProviderAPI_HostAddress}}/payment/b0c56f0c-c0a7-42b8-b407-534004c24d3d
-Accept: application/json
-
-###

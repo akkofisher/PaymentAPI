@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using PaymentProviderAPI.Entity.PaymentProviderAPI.Services;
+using PaymentProviderAPI.Entity;
 using PaymentProviderAPI.Models;
 
 namespace PaymentProviderAPI.Controllers
@@ -15,54 +15,43 @@ namespace PaymentProviderAPI.Controllers
             _paymentStore = paymentStore;
         }
 
-
         [HttpPost]
         public IActionResult ProcessPayment([FromBody] PaymentRequest request)
         {
             //validate request
-            if (request == null || request.Amount <= 0 || request.AccountId <= 0)
+            if (request == null || request.Amount <= 0 || request.IdempotencyKey == Guid.Empty)
             {
                 return BadRequest(new { Message = "Invalid payment request." });
             }
 
-            //check for idempotency
+            // same idempotency key returns the already created payment
+            var payment = _paymentStore.AddPayment(request);
 
-            var existingPayment = _paymentStore.GetTransactionByIdempotencyKey(request.IdempotencyKey);
-            if (existingPayment)
+            Console.WriteLine($"PaymentId: {payment.PaymentId}, Status: {payment.Status}");
+
+            return Ok(new
             {
-                return BadRequest(new { Message = "Payment already processed." });
+                PaymentId = payment.PaymentId,
+                Status = payment.Status
+            });
             }
 
-            var transactionId = Guid.NewGuid();
-            _paymentStore.AddPayment(request.IdempotencyKey, true, transactionId);
-
-            return Ok(new { status = "success", TransactionId = transactionId });
-
-            ////if success
-            //if (IsSuccess)
-            //{
-            //    return Ok(new { Message = "Payment processed successfully.", TransactionId = paymentResult.TransactionId });
-            //}
-            //else
-            //{
-            //    return StatusCode(500, new { Message = "Payment processing failed.", Error = paymentResult.ErrorMessage });
-            //}
-        }
-
-        //get payment by transactionid
-        [HttpGet("{transactionId}")]
-        public IActionResult GetPaymentStatus(Guid transactionId)
+        [HttpGet("{paymentId:guid}")]
+        public IActionResult GetPaymentStatus(Guid paymentId)
         {
-            var success = _paymentStore.GetTransactionByTransactionId(transactionId);
-            if (success)
-            {
-                return Ok(new { Message = "Payment found.", TransactionId = transactionId });
+            var payment = _paymentStore.GetByPaymentId(paymentId);
+               if (payment == null)
+               {
+                return NotFound(new { Message = "Payment not found.", PaymentId = paymentId });
             }
-            else
-            {
-                return NotFound(new { Message = "Payment not found.", TransactionId = transactionId });
-            }
-        }
 
+               Console.WriteLine($"PaymentId: {payment.PaymentId}, Status: {payment.Status}");
+
+            return Ok(new
+            {
+                PaymentId = payment.PaymentId,
+                Status = payment.Status
+            });
+        }
     }
 }
