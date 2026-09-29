@@ -1,42 +1,61 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using PaymentAPI.Models;
+using PaymentAPI.Services;
 
 namespace PaymentAPI.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class PayController : Controller
+    public class PayController : ControllerBase
     {
+           private readonly PaymentService _paymentService;
+
+        public PayController(PaymentService paymentService)
+        {
+              _paymentService = paymentService;
+        }
+
         [HttpPost]
-        public IActionResult CreatePayment([FromBody] PaymentCreate request)
+        public async Task<IActionResult> CreatePayment([FromBody] PaymentCreate request)
         {
             //validate request
-            if (request == null || request.Amount <= 0 || request.AccountId <= 0)
+            if (request == null || request.Amount <= 0)
             {
                 return BadRequest(new { Message = "Invalid payment request." });
-            }
+             }
 
-            var idempotencyStore = new Dictionary<Guid, Guid>();
-
-            using (var httpClient = new HttpClient())
+               if (request.IdempotencyKey == Guid.Empty)
             {
-                var paymentProviderApiUrl = "https://localhost:7081/Payment";
-                var paymentRequest = new
+                 return BadRequest(new { Message = "IdempotencyKey is Required." });
+            }
+    
+            try
+            {
+                   var payment = await _paymentService.CreatePaymentAsync(request);
+                return Ok(new
                 {
-                    Amount = request.Amount,
-                    AccountId = request.AccountId,
-                    IdempotencyKey = Guid.NewGuid()
-                };
+                    Message = "Payment created Successfully.",
+                    payment.PaymentId,
+                    payment.Status,
+                    payment.IdempotencyKey
+                   });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(502, new { Message = "Payment Processing failed.", Error = ex.Message });
+            }
+        }
 
-                var response = httpClient.PostAsJsonAsync(paymentProviderApiUrl, paymentRequest).Result;
-                if (!response.IsSuccessStatusCode)
-                {
-                    return StatusCode((int)response.StatusCode, new { Message = "Payment processing failed." });
-                }
+        [HttpGet("{idempotencyKey:guid}")]
+          public IActionResult GetPayment(Guid idempotencyKey)
+        {
+            var payment = _paymentService.GetPayment(idempotencyKey);
+            if (payment == null)
+             {
+                return NotFound(new { Message = "Payment not Found." });
             }
 
-
-            return Ok(new { Message = "Payment Create successfully.", TransactionId = Guid.NewGuid() });
+            return Ok(payment);
         }
     }
 }

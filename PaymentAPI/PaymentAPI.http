@@ -1,12 +1,22 @@
 @PaymentAPI_HostAddress = http://localhost:5197
+@IdempotencyKey = 86d17a59-a25c-4618-874d-fa345aac796a
 
 POST {{PaymentAPI_HostAddress}}/pay/
 Accept: application/json
 Content-Type: application/json
-
 {
     "amount": 100.00,
-    "accountId": 1
+    "IdempotencyKey": "{{IdempotencyKey}}"
 }
+
+### amount 100 = 12 wamis mere complete
+### amount 101 = fail
+
+@PaymentProviderAPI_HostAddress = http://localhost:5207
+@TransactionId = 43b50c8e-de50-437a-9bb3-fe9371fcb77a
+
+GET {{PaymentProviderAPI_HostAddress}}/payment/{{TransactionId}}
+Accept: application/json
+
 
 
