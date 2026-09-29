@@ -1,0 +1,12 @@
+@PaymentAPI_HostAddress = http://localhost:5197
+
+POST {{PaymentAPI_HostAddress}}/pay/
+Accept: application/json
+Content-Type: application/json
+
+{
+    "amount": 100.00,
+    "accountId": 1
+}
+
+
